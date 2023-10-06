@@ -1,0 +1,20 @@
+TradingDate [交易日期] - 
+Symbol [证券代码] - 
+ShortName [股票简称] - 
+MarketLinkCode [市场通代码] - HKEXtoSSE：沪股通；HKEXtoSZSE:：深股通；
+CurrencyCode [货币代码] - 
+Filling [填充标识] - 0=不填充，1=非节假日填充，2=节假日填充
+SecurityID [证券ID] - 希施玛编制的证券ID
+InstitutionID [机构ID] - 希施玛编制的公司ID
+PreClosePrice [昨收盘(交易所)] - 
+OpenPrice [开盘价] - 
+ClosePrice [收盘价] - 
+HighPrice [最高价] - 
+LowPrice [最低价] - 
+Volume [成交量] - 
+Amount [成交金额] - 
+Change [涨跌] - 
+ChangeRatio [涨跌幅] - 
+IsOpen [市场通开闭状态] - 
+TradingStatusID [交易状态ID] - Q3401：可买入卖出；Q3402：只可卖出
+TradingStatus [交易状态] - 

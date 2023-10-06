@@ -1,0 +1,18 @@
+TradingDate [交易日期] - 
+Symbol [股票代码] - 
+InstitutionID [公司ID] - 
+SecurityID [证券ID] - 
+Filling [填充标识] - 0=不填充，1=非节假日填充（停牌），2=节假日填充。
+PreClosePrice [昨收盘(交易所)] - 
+OpenPrice [开盘价] - 
+ClosePrice [收盘价] - 
+HighPrice [最高价] - 
+LowPrice [最低价] - 
+Volume [成交量] - 
+Amount [成交金额] - 
+AvgPrice [均价] - 
+Change [涨跌] - 
+ChangeRatio [涨跌幅] - 
+Amplitude [振幅] - 
+RelativeIPOChange [相对发行价涨跌] - 
+RelativeIPOChangeRatio [相对发行价涨跌幅] - 

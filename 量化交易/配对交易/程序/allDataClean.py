@@ -1,8 +1,11 @@
+#-*- coding : utf-8 -*-
+# coding: utf-8
+
 import shutil
 
 path = '..\\result'
 try:
-    shutil.rmtree(path)
-    print("É¾³ı³É¹¦")
+    shutil.rmtree(path,ignore_errors=True)
+    print("åˆ é™¤æˆåŠŸ")
 except:
-    print("É¾³ıÊ§°Ü")
+    print("åˆ é™¤å¤±è´¥")

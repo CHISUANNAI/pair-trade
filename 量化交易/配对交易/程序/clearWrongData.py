@@ -1,5 +1,6 @@
+#%%
 # -*- encoding:utf-8 -*-
-# 导库层
+#导库层
 import numpy as np
 import pandas as pd
 import datetime
@@ -14,25 +15,25 @@ import pathlib
 import warnings
 
 warnings.filterwarnings("ignore")
-# 数据截止至2023年8月25日，交易费用截止至2023年9月20日
-# 读取数据层
-AHInfo = pd.read_csv(pathlib.Path("data/A+HInfo.csv"), encoding='gbk')
-ARHab = pd.read_csv(pathlib.Path("data/ARHab.csv"), encoding='gbk')
-HAInfo = pd.read_csv(pathlib.Path("data/H+AInfo.csv"), encoding='utf_8_sig')
-HRHabByRMB = pd.read_csv(pathlib.Path("data/HRHabByRMB.csv"), encoding='gbk')
-HKDCNY = pd.read_csv(pathlib.Path("data/HKDCNY.EX.csv"), encoding='gbk')
-AHInfoSH = AHInfo.query('证券代码.str.contains("SH")', engine='python')
-AHInfoSZ = AHInfo.query('证券代码.str.contains("SZ")', engine='python')
-# 重新设置索引
+#数据截止至2023年8月25日，交易费用截止至2023年9月20日
+#读取数据层
+AHInfo = pd.read_csv(pathlib.Path('data', 'A+HInfo.csv'), encoding='gbk')
+ARHab = pd.read_csv(pathlib.Path('data', 'ARHab.csv'), encoding='gbk')
+HAInfo = pd.read_csv(pathlib.Path('data', 'H+AInfo.csv'), encoding='utf_8_sig')
+HRHabByRMB = pd.read_csv(pathlib.Path('data', 'HRHabByRMB.csv'), encoding='gbk')
+HKDCNY = pd.read_csv(pathlib.Path('data', 'HKDCNY.EX.csv'), encoding='gbk')
+AHInfoSH = AHInfo.query('证券代码.str.contains("SH")', engine='python').copy()
+AHInfoSZ = AHInfo.query('证券代码.str.contains("SZ")', engine='python').copy()
+#重新设置索引
 ARHab = ARHab.set_index(['date'])
 HRHabByRMB = HRHabByRMB.set_index(['date'])
 HKDCNY = HKDCNY.set_index(['时间'])
 HKDCNY = HKDCNY.drop(columns=['代码', '简称'])
-# 设置索引格式
+#设置索引格式
 ARHab.index = pd.to_datetime(ARHab.index, format='%Y-%m-%d')
 HRHabByRMB.index = pd.to_datetime(HRHabByRMB.index, format='%Y-%m-%d')
 HKDCNY.index = pd.to_datetime(HKDCNY.index, format='%Y-%m-%d')
-# 全局数据清洗
+#全局数据清洗
 ARHab = ARHab.astype(str)
 for index, column in ARHab.items():  # 去除所有的','
     ARHab.loc[:, index] = ARHab.loc[:, index].str.replace(",", "")
@@ -45,7 +46,7 @@ HKDCNY = HKDCNY.astype(str)
 for index, column in HKDCNY.items():  # 去除所有的','
     HKDCNY.loc[:, index] = HKDCNY.loc[:, index].str.replace(",", "")
 HKDCNY = pd.DataFrame(HKDCNY, dtype=float)
-# 生成股票代码
+#生成股票代码
 SHStockCode = []
 for index, row in AHInfoSH.iterrows():
     SHStockCode.append(row['证券代码'])
@@ -54,27 +55,28 @@ for index, row in AHInfoSZ.iterrows():
     SZStockCode.append(row['证券代码'])
 
 
-# 函数层
-# 数据选择函数
-# 输入A股证券代码，查询A股和H股的对应序列
+#函数层
+#数据选择函数
+#输入A股证券代码，查询A股和H股的对应序列
 def DataSelect(AID):
-    # AID:A股代码
-    HID = AHInfo.loc[AHInfo["证券代码"] == AID]["同公司港股代码"]
+    #AID:A股代码
+    HID = AHInfo.loc[AHInfo["证券代码"] == AID]["同公司港股代码"].copy()
     HID = HID.iloc[0]
-    data = pd.merge(ARHab[AID].to_frame(), HRHabByRMB[HID].to_frame(), left_index=True, right_index=True, how='outer')
+    data = pd.merge(ARHab[AID].to_frame(), HRHabByRMB[HID].to_frame(), left_index=True, right_index=True,
+                    how='outer').copy()
     return data
 
 
-# 去除空值行
+#去除空值行
 def DataClean(data):
-    # data:为要处理的dataframe
+    #data:为要处理的dataframe
     data = data.dropna()
     return data
 
 
-# 线性回归，返回截距与系数
+#线性回归，返回截距与系数
 def OLS(x, y):
-    # x:解释变量，y:解释变量
+    #x:解释变量，y:解释变量
     x = sm.add_constant(x)
     model = sm.OLS(y, x)
     OLSresults = model.fit()
@@ -93,22 +95,22 @@ def OLS(x, y):
     return [constant, slope]
 
 
-# 判断是否能成为配对，返回是否为配对，1为是，0为否;截距;系数;残差的标准差
+#判断是否能成为配对，返回是否为配对，1为是，0为否;截距;系数;残差的标准差
 def IfPair(data, T0, tf, CD):
-    # data为要检验的数据，start为起始时间，精确到日，length为时间跨度，单位为月份，CD为置信度
+    #data为要检验的数据，start为起始时间，精确到日，length为时间跨度，单位为月份，CD为置信度
     data = pd.DataFrame(data, dtype=float)
     T0 = datetime.datetime.strptime(T0, "%Y-%m-%d")
     end = T0 + relativedelta(months=tf)
-    temp = data.loc[T0:end]
+    temp = data.loc[T0:end].copy()
     temp.iloc[:, 0] = np.log(temp.iloc[:, 0])
     temp.iloc[:, 1] = np.log(temp.iloc[:, 1])
-    # 进行线性回归
-    x = temp.iloc[:, 0]
-    y = temp.iloc[:, 1]
+    #进行线性回归
+    x = temp.iloc[:, 0].copy()
+    y = temp.iloc[:, 1].copy()
     parameter = OLS(x, y)
     re = y - x * parameter[1] - parameter[0]
     std = re.std()
-    # ADF检验
+    #ADF检验
     try:
         ADFresultC = adfuller(re, regression='c')
         if ADFresultC[1] < CD:
@@ -127,7 +129,7 @@ def IfPair(data, T0, tf, CD):
     return [0, parameter[0], parameter[1], std]
 
 
-# 计算A股交易费用
+#计算A股交易费用
 def CalculateATF(IsS, SNV):
     # IsS:是否是卖方,SNV：股票净值
     # A股佣金比例（ACR）：0.0003,不满5元按5元收取;印花税(SD)：向卖方收取0.00005；过户费(TransferF)：0.00001；交易所规费(EF)：0.0000687；
@@ -150,9 +152,9 @@ def CalculateATF(IsS, SNV):
         return ATF
 
 
-# 计算H股交易费用
+#计算H股交易费用
 def CalculateHTF(IsS, SNV, ExchangeRate):
-    # SNV：股票净值
+    #SNV：股票净值
     # 港股佣金比例(ACR)：0.0025，最低收费100港币；证监会交易征费(SFCTL)：0.000027;财务汇报局交易征费(FRCTL)：0.0000015;交易费(TF):0.0000565;H股印花税(SD)：0.0013，不足一元亦作一元计;
     # 转手纸印花税(SDOTP):5港币，卖方负责缴付；过户费用(TransferF):2.50港币，由买方支付
     ACR = 0.0025
@@ -184,23 +186,24 @@ def CalculateHTF(IsS, SNV, ExchangeRate):
         return ATF
 
 
-# 分配初始金额函数,返回值为数组:A股数量;港股数量
+#分配初始金额函数,返回值为数组:A股数量;港股数量
 def AllotmentAmount(All, r, ExchangeRate, PA, PH):
     # All:初始资金;r:比例系数，为在判断是否为配对的函数中的比例系数;DateTime:分配初始金额的日期;date:股票的价格数据
-    # A股佣金比例（ACR）：0.0003,不满5元按5元收取;印花税(SD)：向卖方收取0.00005；过户费(TransferF)：0.00001；交易所规费(EF)：0.0000687；
+    #A股佣金比例（ACR）：0.0003,不满5元按5元收取;印花税(SD)：向卖方收取0.00005；过户费(TransferF)：0.00001；交易所规费(EF)：0.0000687；
     # 港股佣金比例(ACR)：0.0025，最低收费100港币；证监会交易征费(SFCTL)：0.000027;财务汇报局交易征费(FRCTL)：0.0000015;交易费(TF):0.0000565;H股印花税(SD)：0.0013，不足一元亦作一元计;
     # 转手纸印花税(SDOTP):5港币，卖方负责缴付；过户费用(TransferF):2.50港币，由买方支付
+    #对斜率进行修正
     if r < 0:
         r = r * -1
-    T = 2.5 * ExchangeRate  # 过户费用
-    rA = 0.0003787  # A股交易费用的比例部分
-    rH = 0.003885  # H股交易费用的比例部分
-    rA1 = 0.0000787  # A股去除佣金部分的比例系数
-    ACRA = 0.0003  # A股佣金比例（ACR）
-    ACRFA = 5  # A股佣金固定数值
-    rH1 = 0.001385  # H股去除佣金部分的比例系数
-    ACRFH = 100 * ExchangeRate  # H股佣金固定数值
-    ACRH = 0.0025  # H股佣金比例（ACR）
+    T = 2.5 * ExchangeRate  #过户费用
+    rA = 0.0003787  #A股交易费用的比例部分
+    rH = 0.003885  #H股交易费用的比例部分
+    rA1 = 0.0000787  #A股去除佣金部分的比例系数
+    ACRA = 0.0003  #A股佣金比例（ACR）
+    ACRFA = 5  #A股佣金固定数值
+    rH1 = 0.001385  #H股去除佣金部分的比例系数
+    ACRFH = 100 * ExchangeRate  #H股佣金固定数值
+    ACRH = 0.0025  #H股佣金比例（ACR）
     nH = (All - T) / (PA * r + PA * r * rA + PH + PH * rH)
     nA = r * nH
     # print(nA, nH, r)
@@ -231,14 +234,14 @@ def AllotmentAmount(All, r, ExchangeRate, PA, PH):
             return [0, 0]
 
 
-# 购买A股函数，返回这笔资金能购买的A股股票数量
+#购买A股函数，返回这笔资金能购买的A股股票数量
 def NumberOfACanBePurchased(All, price):
-    # All:资金;DateTime:日期;price:价格
-    # A股佣金比例（ACR）：0.0003,不满5元按5元收取;印花税(SD)：向卖方收取0.00005；过户费(TransferF)：0.00001；交易所规费(EF)：0.0000687；
-    rA = 0.0003787  # A股交易费用的比例部分
-    rA1 = 0.0000787  # A股去除佣金部分的比例系数
-    ACRA = 0.0003  # A股佣金比例（ACR）
-    ACRFA = 5  # A股佣金固定数值
+    #All:资金;DateTime:日期;price:价格
+    #A股佣金比例（ACR）：0.0003,不满5元按5元收取;印花税(SD)：向卖方收取0.00005；过户费(TransferF)：0.00001；交易所规费(EF)：0.0000687；
+    rA = 0.0003787  #A股交易费用的比例部分
+    rA1 = 0.0000787  #A股去除佣金部分的比例系数
+    ACRA = 0.0003  #A股佣金比例（ACR）
+    ACRFA = 5  #A股佣金固定数值
     nA = All / ((1 + rA) * price)
     if price * nA * ACRA > 5:
         nA = math.floor(nA)
@@ -251,15 +254,15 @@ def NumberOfACanBePurchased(All, price):
         return nA
 
 
-# 购买H股函数，返回这笔资金能购买的H股股票数量
+#购买H股函数，返回这笔资金能购买的H股股票数量
 def NumberOfHCanBePurchased(All, price, ExchangeRate):
     # 港股佣金比例(ACR)：0.0025，最低收费100港币；证监会交易征费(SFCTL)：0.000027;财务汇报局交易征费(FRCTL)：0.0000015;交易费(TF):0.0000565;H股印花税(SD)：0.0013，不足一元亦作一元计;
     # 转手纸印花税(SDOTP):5港币，卖方负责缴付；过户费用(TransferF):2.50港币，由买方支付
-    T = 2.5 * ExchangeRate  # 过户费用
-    rH = 0.003885  # H股交易费用的比例部分
-    rH1 = 0.001385  # H股去除佣金部分的比例系数
-    ACRFH = 100 * ExchangeRate  # H股佣金固定数值
-    ACRH = 0.0025  # H股佣金比例（ACR）
+    T = 2.5 * ExchangeRate  #过户费用
+    rH = 0.003885  #H股交易费用的比例部分
+    rH1 = 0.001385  #H股去除佣金部分的比例系数
+    ACRFH = 100 * ExchangeRate  #H股佣金固定数值
+    ACRH = 0.0025  #H股佣金比例（ACR）
     nH = (All - T) / ((1 + rH) * price)
     if price * nH * ACRH > 100 * ExchangeRate:
         nH = math.floor(nH)
@@ -272,7 +275,7 @@ def NumberOfHCanBePurchased(All, price, ExchangeRate):
         return nH
 
 
-# 交易函数，将模拟交易过程,返回为收益率,开仓次数,平仓次数
+#交易函数，将模拟交易过程,返回为收益率,开仓次数,平仓次数
 def trade(AID, All, data, CD, T0, tf, tt, dc, do, ds):
     # print("*" * 100)
     # print("开始交易", "证券代码:", AID, "开始日期:", T0, "形成期长度:", tf, "交易期长度:", tt)
@@ -286,14 +289,14 @@ def trade(AID, All, data, CD, T0, tf, tt, dc, do, ds):
         while len(templi) < tt * 30 + 4:
             templi.append(0)
         return templi
-    # dc平仓阈值系数,do为开仓阈值系数，ds为止损阈值系数
+    #dc平仓阈值系数,do为开仓阈值系数，ds为止损阈值系数
     dok = par[3] * do
     dck = par[3] * dc
     dsk = par[3] * ds
     T0 = datetime.datetime.strptime(T0, "%Y-%m-%d")
     T1 = T0 + relativedelta(months=tf)
     T2 = T0 + relativedelta(months=tf + tt)
-    TradingPeriodData = data.loc[T1:T2]
+    TradingPeriodData = data.loc[T1:T2].copy()
     if TradingPeriodData.size == 0:
         templi = []
         while len(templi) < tt * 30 + 4:
@@ -321,10 +324,11 @@ def trade(AID, All, data, CD, T0, tf, tt, dc, do, ds):
         nH * PH0).quantize(Decimal("0.00")) - CalculateHTF(0, nH * PH0, ExchangeRate0)
     rePre = None
     IsOpen = False
-    redf = []  # 用来记录每次模拟交易的残差值
+    redf = []  #用来记录每次模拟交易的残差值
     TradingPeriodData = pd.DataFrame(TradingPeriodData, dtype=float)
     TradingPeriodDataCopy = TradingPeriodData.copy()
     for index, row in TradingPeriodDataCopy.iterrows():
+
         re = math.log(row[1]) - math.log(row[0]) * par[2] - par[1]
         redf.append(re)
         reAbs = abs(re)
@@ -415,10 +419,12 @@ def trade(AID, All, data, CD, T0, tf, tt, dc, do, ds):
                     cash = cash - Decimal(nHP * row[1]).quantize(Decimal("0.00")) - CalculateHTF(0, nHP * row[1],
                                                                                                  ExchangeRate)
                     nH = nH + nHP
+                if (reAbs > dok and IsOpen and re * rePre < 0):
+                    closingTimes = closingTimes + 1
                 # print("开仓")
                 IsOpen = True
                 openingTimes = openingTimes + 1
-            if abs(re / par[3]) <= 0.001 and reAbs < dok:
+            if abs(re / par[3]) <= 0.001 and reAbs < dok and IsOpen==True:
                 if nA > nAStart:
                     deltaA = nA - nAStart
                     nACash = Decimal(deltaA * row[0]).quantize(Decimal("0.00")) - CalculateATF(1, deltaA * row[0])
@@ -474,13 +480,13 @@ def trade(AID, All, data, CD, T0, tf, tt, dc, do, ds):
     return redf
 
 
-# 创建文件
+#创建文件
 def mkdir(path):
-    # 输入文件路径
+    #输入文件路径
     folder = os.path.exists(path)
 
-    if not folder:  # 判断是否存在文件夹如果不存在则创建为文件夹
-        os.makedirs(path)  # makedirs 创建文件时如果路径不存在会创建这个路径
+    if not folder:  #判断是否存在文件夹如果不存在则创建为文件夹
+        os.makedirs(path)  #makedirs 创建文件时如果路径不存在会创建这个路径
         print("---  new folder...  ---")
         print("---  OK  ---")
 
@@ -488,7 +494,6 @@ def mkdir(path):
         print("---  There is this folder!  ---")
 
 
-# 获得汇率
 def getExchangeRate(time):
     # print(time)
     while not (time in HKDCNY.index):
@@ -499,12 +504,206 @@ def getExchangeRate(time):
 
 # print(HKDCNY)
 
+
+def pariTradeMain(IDSet, IsSH):
+    All = 1000000
+    CD = 0.05
+    mkdir(pathlib.Path('..', 'result'))
+    path1 = None
+    path2 = None
+    path3 = None
+    earlyTime = '2002-04-02'
+    endTime = '2023-08-25'
+    endTime = datetime.datetime.strptime(endTime, "%Y-%m-%d")
+    earlyTime = datetime.datetime.strptime(earlyTime, "%Y-%m-%d")
+    if IsSH == 1:
+        path1 = pathlib.Path('..', 'result', 'SH')
+        interInterworkingTime = '2014-11-17'
+        interInterworkingTime = datetime.datetime.strptime(interInterworkingTime, "%Y-%m-%d")
+    else:
+        path1 = pathlib.Path('..', 'result', 'SZ')
+        interInterworkingTime = '2016-12-05'
+        interInterworkingTime = datetime.datetime.strptime(interInterworkingTime, "%Y-%m-%d")
+    # kli = [0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.2, 0.25, 0.5]
+    kli = [0.00001, 0.001, 0.01, 0.0125]
+    mkdir(path1)
+    for k in kli:
+        print('k=', k)
+        path2 = path1.joinpath('k' + str(k))
+        mkdir(path2)
+        for tf in range(1, 25):
+            for tt in range(1, 13):
+                # for tf in range(1, 3):
+                #     for tt in range(1, 3):
+                # for tf in range(10, 11):
+                #     for tt in range(12, 13):
+                print('tf=', tf, 'tt=', tt)
+                path3 = path2.joinpath('tf' + str(tf) + 'tt' + str(tt))
+                mkdir(path3)
+                path4 = path3.joinpath('pre')
+                mkdir(path4)
+                path5 = path3.joinpath('post')
+                mkdir(path5)
+                preOtherDic = {}
+                preNameLi = []
+                preExcessYieldRateLi = []
+                preYieldRateLi = []
+                preOpeningTimesLi = []
+                preClosingTimesLi = []
+                postOtherDic = {}
+                postNameLi = []
+                postYieldRateLi = []
+                postExcessYieldRateLi = []
+                postOpeningTimesLi = []
+                postClosingTimesLi = []
+                preSharpeRateLi = []
+                postSharpeRateLi = []
+                for AID in IDSet:
+                    data = DataSelect(AID)
+                    data = DataClean(data)
+                    T0Li = []
+                    preReDIC = {}
+                    postReDIC = {}
+                    T0set = set()
+                    for i in range(0, data.shape[0]):
+                        T0 = data.iloc[i].name
+                        T0 = T0.replace(day=1)
+                        if not T0.strftime("%Y-%m-%d") in T0set:
+                            T0set.add(T0.strftime("%Y-%m-%d"))
+                            T0Li.append(T0)
+                    preTempYieldRateLi = []
+                    preTempOpeningTimesLi = []
+                    preTempClosingTimesLi = []
+                    preTempExcessYieldRateLi = []
+                    postTempYieldRateLi = []
+                    postTempOpeningTimesLi = []
+                    postTempClosingTimesLi = []
+                    postTempExcessYieldRateLi = []
+                    try:
+                        for T0 in T0Li:
+                            if T0 < earlyTime or (T0 + relativedelta(
+                                    months=tf + tt) > interInterworkingTime and T0 < interInterworkingTime) or (
+                                    T0 > interInterworkingTime and (T0 + relativedelta(months=tf + tt) > endTime)):
+                                continue
+                            # [yieldRate, openingTimes, closingTimes,redf]
+                            reliName = str(T0) + 'tf' + str(tf) + 'tt' + str(tt)
+                            T0Copy = T0.strftime("%Y-%m-%d")
+                            dataCopy = data.copy()
+                            tradeData = trade(AID, All, dataCopy, CD, T0Copy, tf, tt, 0, k, 1.96)
+                            if T0 < interInterworkingTime:
+                                preReDIC.update({reliName: tradeData})
+                            else:
+                                postReDIC.update({reliName: tradeData})
+                            if T0 < interInterworkingTime:
+                                if tradeData[-4] != 0 or tradeData[-3] != 0 or tradeData[-2] != 0 or tradeData[-1] != 0:
+                                    preTempYieldRateLi.append(tradeData[-4])
+                                    preTempOpeningTimesLi.append(tradeData[-3])
+                                    preTempClosingTimesLi.append(tradeData[-2])
+                                    preTempExcessYieldRateLi.append(tradeData[-1])
+                            else:
+                                if tradeData[-4] != 0 or tradeData[-3] != 0 or tradeData[-2] != 0 or tradeData[-1] != 0:
+                                    postTempYieldRateLi.append(tradeData[-4])
+                                    postTempOpeningTimesLi.append(tradeData[-3])
+                                    postTempClosingTimesLi.append(tradeData[-2])
+                                    postTempExcessYieldRateLi.append(tradeData[-1])
+                    except:
+                        print(AID)
+                        continue
+                    if not len(preTempYieldRateLi) == 0:
+                        preNameLi.append(AID)
+                        preYieldRateLi.append(np.mean(preTempYieldRateLi))
+                        preExcessYieldRateLi.append(np.mean(preTempExcessYieldRateLi))
+                        preOpeningTimesLi.append(np.mean(preTempOpeningTimesLi))
+                        preClosingTimesLi.append(np.mean(preTempClosingTimesLi))
+                        preSharpeRateLi.append(np.mean(preTempExcessYieldRateLi) / np.std(preTempYieldRateLi))
+                    if not len(postTempYieldRateLi) == 0:
+                        postNameLi.append(AID)
+                        postYieldRateLi.append(np.mean(postTempYieldRateLi))
+                        postOpeningTimesLi.append(np.mean(postTempOpeningTimesLi))
+                        postClosingTimesLi.append(np.mean(postTempClosingTimesLi))
+                        postExcessYieldRateLi.append(np.mean(postTempExcessYieldRateLi))
+                        postSharpeRateLi.append(np.mean(postTempExcessYieldRateLi) / np.std(postTempYieldRateLi))
+                    preReDataOut = pd.DataFrame.from_dict(preReDIC)
+                    postReDataOut = pd.DataFrame.from_dict(postReDIC)
+                    preReDataOut.to_csv(path4.joinpath(AID + 'tf' + str(tf) + 'tt' + str(tt) + 'k' + str(k) + '.csv'))
+                    postReDataOut.to_csv(path5.joinpath(AID + 'tf' + str(tf) + 'tt' + str(tt) + 'k' + str(k) + '.csv'))
+                print('tf' + str(tf) + 'tt' + str(tt) + ' end')
+        print('k=', k, ' end')
+    print("*" * 100)
+    print("程序结束")
+
+# testdata = pd.read_csv(r'F:\热爱学习\jupyter\量化交易\配对交易\result\SH\k0.025\tf2tt1\post\600027.SHtf2tt1k0.025.csv')
+# testdata = testdata.iloc[:, 1:]
+# testdata
+# data = DataSelect('600027.SH')
+# data = DataClean(data)
+# dataCopy = data.copy()
+# for column_name, column_series in testdata.items():
+#     # column_name 是列名
+#     # column_series 是该列对应的Series对象
+#     T0 = column_name[:10]
+#     # par = IfPair(dataCopy, T0, tf, CD)
+#     for i in range(0, len(column_series)):
+#         if i >= len(column_series) - 4 or column_series[i] == 0:
+#             continue
+#         print(column_series[i])
+#     print("***************")
+
+#修正开仓次数
+def correctClosetimes(Result, data, CD, tf, do):
+    # print("*" * 100)
+    # print("开始交易", "证券代码:", AID, "开始日期:", T0, "形成期长度:", tf, "交易期长度:", tt)
+    # 是否为配对，1为是，0为否;截距;系数;残差的标准差
+    # print(data)
+    dataCopy = data.copy()
+    ResultCopy=Result.copy()
+    for column_name, column_series in ResultCopy.items():
+        # column_name 是列名
+        # column_series 是该列对应的Series对象
+        T0 = column_name[:10]
+        par = IfPair(dataCopy, T0, tf, CD)
+        # print(par[3] * do)
+        openingTimes = 0
+        closingTimes = 0
+        IsOpen = False
+        rePre = None
+        for i in range(0, len(column_series)):
+            # 处理value，即该列中的每个元素
+            #dc平仓阈值系数,do为开仓阈值系数，ds为止损阈值系数
+            if i >= len(column_series) - 4 or column_series[i] == 0:
+                continue
+            dok = par[3] * do
+            re = column_series[i]
+            reAbs = abs(re)
+            if rePre is None:
+                if reAbs > dok:
+                    IsOpen = True
+                    openingTimes = openingTimes + 1
+            else:
+                if (reAbs > dok and (not IsOpen)) or (reAbs > dok and IsOpen and re * rePre < 0):
+                    if (reAbs > dok and IsOpen and re * rePre < 0):
+                        closingTimes = closingTimes + 1
+                    IsOpen = True
+                    openingTimes = openingTimes + 1
+                if abs(re / par[3]) <= 0.001 and reAbs < dok and IsOpen==True:
+                    IsOpen = False
+                    closingTimes = closingTimes + 1
+            rePre = re
+        ResultCopy.loc[ResultCopy.shape[0] -3,column_name]=openingTimes
+        ResultCopy.loc[ResultCopy.shape[0]-2,column_name]=closingTimes
+    return ResultCopy
+
+
+# correctClosetimes(testdata, data, 0.05, 2, 0.025)
+
+#%%
+
 # 将某个结果的不构成交易的数据去除，并且修正有问题的数据
 def cleanWrongResult(Result, AID, All, data, CD, tf, tt, dc, do, ds):
     '''Result:某个dataframe,AID:证券A股代码, All:初始资金, data:交易数据, CD:置信度 ,tf:形成期, tt:交易期, dc, do, ds:三个交易有关的参数'''
     '''返回[修正后的数据,修正的数据条数]'''
-    nonZeroResult = Result.loc[:, Result.iloc[-4][Result.columns] != 0]
-    BadColumns = nonZeroResult.columns[nonZeroResult.iloc[-4][nonZeroResult.columns] < -1]
+    nonZeroResult = Result.loc[:, Result.iloc[-4][Result.columns] != 0].copy()
+    BadColumns = nonZeroResult.columns[nonZeroResult.iloc[-4][nonZeroResult.columns] < -1].copy()
     # print(newResult)
     for index in BadColumns:
         T0 = index[0:10]
@@ -514,7 +713,7 @@ def cleanWrongResult(Result, AID, All, data, CD, tf, tt, dc, do, ds):
 
 
 # 清洗所有数据
-def cleanWrongResultAll(IDSet, IsSH):
+def cleanResultAll(IDSet, IsSH):
     ''''IDSet:股票ID集合,IsSH:是否沪股'''
     All = 1000000
     CD = 0.05
@@ -535,22 +734,21 @@ def cleanWrongResultAll(IDSet, IsSH):
         interInterworkingTime = '2016-12-05'
         interInterworkingTime = datetime.datetime.strptime(interInterworkingTime, "%Y-%m-%d")
     kli = [0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.2, 0.25, 0.5]
-    # kli = [0.025]
+    # kli = [0.00001, 0.001, 0.01, 0.0125]
     for k in kli:
-        # print('k=',k)
+        print('k=', k)
         path2 = path1.joinpath('k' + str(k))
         for tf in range(1, 25):
             for tt in range(1, 13):
-                # for tf in range(10, 11):
-                #     for tt in range(12, 13):
-                # print('tf=',tf,'tt=',tt)
+        # for tf in range(1, 3):
+        #     for tt in range(1, 3):
+                print('tf=', tf, 'tt=', tt)
                 path3 = path2.joinpath('tf' + str(tf) + 'tt' + str(tt))
                 path4 = path3.joinpath('pre')
                 path5 = path3.joinpath('post')
                 for AID in IDSet:
                     data = DataSelect(AID)
                     data = DataClean(data)
-                    T0Li = []
                     preDataPath = path4.joinpath(AID + 'tf' + str(tf) + 'tt' + str(tt) + 'k' + str(k) + '.csv')
                     postDataPath = path5.joinpath(AID + 'tf' + str(tf) + 'tt' + str(tt) + 'k' + str(k) + '.csv')
                     if preDataPath.exists():
@@ -561,8 +759,9 @@ def cleanWrongResultAll(IDSet, IsSH):
                         else:
                             print('*' * 100)
                             print(AID, tf, tt)
-                            tempData = cleanWrongResult(preData, AID, All, data, CD, tf, tt, 0, k, 1.96)
+                            tempData = cleanWrongResult(preData, AID, All, data.copy(), CD, tf, tt, 0, k, 1.96)
                             preDataOut = tempData[0]
+                            # preDataOut=correctClosetimes(preDataCleared,data.copy(),CD,tf,k)
                             sumError = sumError + tempData[1]
                             preDataOut.to_csv(preDataPath)
                     if postDataPath.exists():
@@ -575,6 +774,7 @@ def cleanWrongResultAll(IDSet, IsSH):
                             print(AID, tf, tt)
                             tempData = cleanWrongResult(postData, AID, All, data, CD, tf, tt, 0, k, 1.96)
                             postDataOut = tempData[0]
+                            # postDataOut=correctClosetimes(postDataCleared,data.copy(),CD,tf,k)
                             sumError = sumError + tempData[1]
                             postDataOut.to_csv(postDataPath)
     print('一共有', sumError, '条异常数据')
@@ -594,7 +794,19 @@ def cleanWrongResultAll(IDSet, IsSH):
 
 
 try:
-    cleanWrongResultAll(SHStockCode, 1)
-    cleanWrongResultAll(SZStockCode, 0)
+    cleanResultAll(SHStockCode, 1)
+    cleanResultAll(SZStockCode, 0)
 except Exception as error:
     print(error)
+
+    # AID = "601211.SH"
+    #
+    # T0 = '2016-01-01'
+    # tf = 30
+    # tt = 1
+    # All = 1000000
+    # li = trade(AID, All, data, CD, T0, tf, tt, 0, 0.1, 1.96)
+    # try:
+    #     print("收益率:", li[0], "开仓次数:", li[1], "平仓次数:", li[2])
+    # except:
+    #     print(li)
